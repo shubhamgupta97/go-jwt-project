@@ -1,13 +1,19 @@
 package util
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/shubhamgupta97/go-jwt-project/pkg/config"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	// "github.com/shubhamgupta97/go-jwt-project/pkg/config"
+	// "go.mongodb.org/mongo-driver/mongo"
 )
 
 type SignedDetails struct {
@@ -61,4 +67,38 @@ func GenerateAllTokens(email string, firstName string, lastName string, userType
 	}
 
 	return
+}
+
+func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+
+	var updateObject primitive.D
+
+	updateObject = append(updateObject, bson.E{Key: "token", Value: signedToken})
+	updateObject = append(updateObject, bson.E{Key: "refreshToken", Value: signedRefreshToken})
+	updatedAt, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	updateObject = append(updateObject, bson.E{Key: "updatedAt", Value: updatedAt})
+
+	upsert := true
+
+	filter := bson.M{"userId": userId}
+	opt := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+
+	_, err := userCollection.UpdateOne(
+		ctx,
+		filter,
+		bson.D{
+			{Key: "$set", Value: updateObject},
+		},
+		&opt,
+	)
+
+	if err != nil {
+		log.Panic(err)
+		return
+	}
+
 }
