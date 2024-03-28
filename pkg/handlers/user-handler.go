@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 	_ "golang.org/x/crypto/bcrypt"
 
 	"github.com/shubhamgupta97/go-jwt-project/pkg/config"
@@ -40,6 +40,9 @@ func SignUp(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 		return
 	}
+
+	hashedPassword := HashPassword(user.Password)
+	user.Password = hashedPassword
 
 	count, err := userCollection.CountDocuments(c, bson.M{"email": user.Email})
 	if err != nil {
@@ -71,7 +74,7 @@ func SignUp(ctx *gin.Context) {
 
 	resultInsertionNumber, insertErr := userCollection.InsertOne(c, user)
 	if insertErr != nil {
-		msg := fmt.Sprintf("user item was not created")
+		msg := "user item was not created"
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		return
 	}
@@ -81,6 +84,42 @@ func SignUp(ctx *gin.Context) {
 }
 
 func Login(ctx *gin.Context) {
+	c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+
+	var user models.User
+	var foundUser models.User
+
+	if err := ctx.BindJSON(&user); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := userCollection.FindOne(c, bson.M{"email": user.Email}).Decode(&foundUser)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "email or password is incorrect"})
+		return
+	}
+
+	isValidPassword, msg := VerifyPassword(user.Password, foundUser.Password)
+	if !isValidPassword {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+		return
+	}
+
+	if foundUser.Email == "" {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user not found"})
+	}
+
+	token, refreshToken, _ := util.GenerateAllTokens(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.UserType, foundUser.UserId)
+	util.UpdateAllTokens(token, refreshToken, foundUser.UserId)
+
+	err = userCollection.FindOne(c, bson.M{"userId": foundUser.UserId}).Decode(&foundUser)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+
+	ctx.JSON(http.StatusOK, foundUser)
 
 }
 
@@ -110,6 +149,25 @@ func GetUserById(ctx *gin.Context) {
 
 }
 
-func HashPassword() {}
+func HashPassword(password string) string {
+	hashedPasswordBytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		log.Panic(err)
+	}
 
-func VerifyPassword() {}
+	return string(hashedPasswordBytes)
+}
+
+func VerifyPassword(password string, providedPassword string) (bool, string) {
+	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(providedPassword))
+
+	chk := true
+	msg := ""
+
+	if err != nil {
+		msg = "email or password is incorrect"
+		chk = false
+	}
+
+	return chk, msg
+}
