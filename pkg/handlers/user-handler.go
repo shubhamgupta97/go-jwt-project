@@ -142,8 +142,10 @@ func GetUsers(ctx *gin.Context) {
 		page = 1
 	}
 
-	startIndex := (page - 1) * recordPerPage
-	startIndex, _ = strconv.Atoi(ctx.Query("startIndex"))
+	startIndex, err := strconv.Atoi(ctx.Query("startIndex"))
+	if err != nil || startIndex == 0 {
+		startIndex = (page - 1) * recordPerPage
+	}
 
 	matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
 	groupStage := bson.D{{Key: "$group", Value: bson.D{
@@ -205,7 +207,7 @@ func HashPassword(password string) string {
 }
 
 func VerifyPassword(password string, providedPassword string) (bool, string) {
-	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(providedPassword))
+	err := bcrypt.CompareHashAndPassword([]byte(providedPassword), []byte(password))
 
 	chk := true
 	msg := ""
