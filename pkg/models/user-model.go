@@ -8,15 +8,15 @@ import (
 
 type User struct {
 	ID           primitive.ObjectID `bson:"_id"`
-	FirstName    string             `json:"firstName" validate:"required, min=2, max=100"`
-	LastName     string             `json:"lastName" validate:"required, min=2, max=100"`
-	Password     string             `json:"password" validate:"required, min=6"`
-	Email        string             `json:"email" validate:"required, email"`
-	Phone        string             `json:"phone" validate:"required, min=10, max=10"`
-	Token        string             `json:"token"`
-	UserType     string             `json:"userType" validate:"required, eq=ADMIN|eq=USER"`
-	RefreshToken string             `json:"refreshToken"`
-	CreatedAt    time.Time          `json:"createdAt"`
-	UpdatedAt    time.Time          `json:"updatedAt"`
-	UserId       string             `json:"userId"`
+	FirstName    string             `bson:"firstName" json:"firstName" validate:"required,min=2,max=100"`
+	LastName     string             `bson:"lastName" json:"lastName" validate:"required,min=2,max=100"`
+	Password     string             `bson:"password" json:"password" validate:"required,min=6"`
+	Email        string             `bson:"email" json:"email" validate:"required,email"`
+	Phone        string             `bson:"phone" json:"phone" validate:"required,min=10,max=10"`
+	Token        string             `bson:"token" json:"token"`
+	UserType     string             `bson:"userType" json:"userType" validate:"required,eq=ADMIN|eq=USER"`
+	RefreshToken string             `bson:"refreshToken" json:"refreshToken"`
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
+	UserId       string             `bson:"userId" json:"userId"`
 }
